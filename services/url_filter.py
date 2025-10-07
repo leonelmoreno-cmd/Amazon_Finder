@@ -4,16 +4,11 @@ from typing import List, Dict
 from urllib.parse import urlparse
 import os
 
-# Default list (edit here to change globally)
-DEFAULT_EXCLUDED = ["amazon.com", "ebay.com", "walmart.com"]
+# Path to the exclusion file (relative to project root)
+DEFAULT_EXCLUDED_FILE = os.path.join(os.path.dirname(__file__), "excluded_domains.txt")
 
 def _parse_domain(url: str) -> str:
-    """
-    Extracts the host:
-    - lowercases
-    - strips 'www.'
-    - ignores ports
-    """
+    """Extracts the host: lowercase, strips 'www.', ignores ports."""
     try:
         netloc = urlparse(url).netloc.lower()
         if ":" in netloc:
@@ -25,31 +20,30 @@ def _parse_domain(url: str) -> str:
         return ""
 
 def _endswith_any(host: str, domains: List[str]) -> bool:
-    # Allow subdomains: seller.amazon.com -> amazon.com
     return any(host.endswith(d.strip().lower()) for d in domains if d.strip())
 
-def _parse_list(text: str) -> List[str]:
-    # Accept comma- or newline-separated
-    parts = [p.strip().lower() for p in text.replace(",", "\n").splitlines() if p.strip()]
-    return parts
+def _load_default_excluded() -> List[str]:
+    """Reads default excluded domains from a text file."""
+    try:
+        with open(DEFAULT_EXCLUDED_FILE, "r", encoding="utf-8") as f:
+            lines = [line.strip().lower() for line in f.readlines() if line.strip()]
+        return lines or ["amazon.com", "ebay.com", "walmart.com"]
+    except FileNotFoundError:
+        # Fallback if file missing
+        return ["amazon.com", "ebay.com", "walmart.com"]
 
 def get_excluded_domains() -> List[str]:
     """
-    Returns excluded domains from:
-      1) ENV var EXCLUDE_DOMAINS (comma/newline separated)
-      2) DEFAULT_EXCLUDED (fallback)
+    Returns excluded domains from excluded_domains.txt.
+    Can also override with environment variable EXCLUDE_DOMAINS (optional).
     """
-    raw = os.getenv("EXCLUDE_DOMAINS", "")
-    if raw:
-        parsed = _parse_list(raw)
-        if parsed:
-            return parsed
-    return DEFAULT_EXCLUDED
+    env_val = os.getenv("EXCLUDE_DOMAINS", "")
+    if env_val:
+        return [d.strip().lower() for d in env_val.replace(",", "\n").splitlines() if d.strip()]
+    return _load_default_excluded()
 
 def filter_items_by_domain(items: List[Dict], excluded: List[str]) -> List[Dict]:
-    """
-    Filters items by excluding links whose host matches any excluded domain.
-    """
+    """Filters Google CSE results by excluding unwanted domains."""
     out: List[Dict] = []
     for it in items:
         link = (it or {}).get("link") or it.get("url")
