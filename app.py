@@ -12,6 +12,7 @@ from services.product_details import build_stage2_dataframe
 from services.google_client import make_google_client
 from services.semantic import build_query, normalize_exclusions, semantic_filter
 
+from utils.data_ops import sanitize_for_stage3, df_to_csv_bytes, clean_text
 
 # -------------------------
 # Page / App configuration
@@ -163,15 +164,22 @@ if stage2_btn:
                 stage_status=stage_status,
                 stage_progress=stage_progress,
             )
-
+            df = sanitize_for_stage3(df)
             st.session_state["stage2_df"] = df
             stage_status.success(f"Stage 2 complete. Rows: {len(df)}")
             stage_progress.progress(100)
 
             with results_container:
                 st.caption("Stage 2 preview (top 20 by sales volume):")
-                st.dataframe(df.head(20), use_container_width=True)
-
+                st.dataframe(df.head(5), use_container_width=True)
+                # 🔽 NUEVO: Botón para descargar Stage 2 CSV
+                st.download_button(
+                    label="⬇️ Download Stage 2 CSV",
+                    data=df_to_csv_bytes(df),
+                    file_name="stage2_products.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
         except Exception as e:
             log.exception("Stage 2 failed")
             stage_status.error(f"Stage 2 failed: {e}")
@@ -228,8 +236,8 @@ if stage3_btn:
 
             total = len(df2)
             for i, row in df2.iterrows():
-                brand = (row.get("brand") or "").strip()
-                title = (row.get("product_title") or "").strip()
+                brand = clean_text(row.get("brand"))
+                title = clean_text(row.get("product_title"))
                 target = f"{brand} {title}".strip() or title or brand
                 if not target:
                     continue
@@ -257,8 +265,14 @@ if stage3_btn:
 
             with results_container:
                 st.caption("Stage 3 preview (top 20):")
-                st.dataframe(df2.head(20), use_container_width=True)
-
+                st.dataframe(df2.head(5), use_container_width=True)
+                st.download_button(
+                label="⬇️ Download Stage 3 CSV",
+                data=df_to_csv_bytes(df2),
+                file_name="stage3_with_links.csv",
+                mime="text/csv",
+                use_container_width=True,
+                 )
         except Exception as e:
             log.exception("Stage 3 failed")
             stage_status.error(f"Stage 3 failed: {e}")
