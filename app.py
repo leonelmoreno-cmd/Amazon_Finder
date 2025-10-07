@@ -254,6 +254,12 @@ if stage3_btn:
                 excluded = get_excluded_domains()
                 log.info("Applying server-side domain exclusions: %s", excluded)
                 filtered = filter_items_by_domain(filtered, excluded)   
+                from services.link_ranker import rank_links_by_brand
+
+                if brand and filtered:
+                    ranked = rank_links_by_brand(filtered, brand, threshold=75)
+                    filtered = ranked  # priorizamos solo esos links si hay coincidencia fuerte
+
                 for j in range(int(max_links)):
                     df2.at[i, f"link_{j+1}"] = (filtered[j]["url"] if j < len(filtered) else None)
 

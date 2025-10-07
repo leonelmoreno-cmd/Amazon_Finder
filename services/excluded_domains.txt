@@ -117,3 +117,6 @@ homedepot.com
 reddit.com
 yahoo.com
 x.com
+costco.com
+samsclub.com
+instagram.com

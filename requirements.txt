@@ -5,3 +5,5 @@ python-dotenv
 tqdm
 sentence-transformers
 torch
+thefuzz
+python-Levenshtein
