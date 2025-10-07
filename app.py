@@ -10,7 +10,8 @@ from utils.logging_setup import setup_logging
 from services.best_sellers import fetch_best_sellers
 from services.product_details import build_stage2_dataframe
 from services.google_client import make_google_client
-from services.semantic import build_query, normalize_exclusions, semantic_filter
+from services.semantic import build_query, semantic_filter
+from services.url_filter import get_excluded_domains, filter_items_by_domain
 
 from utils.data_ops import sanitize_for_stage3, df_to_csv_bytes, clean_text
 
@@ -203,12 +204,6 @@ with colB:
 with colC:
     qps = st.number_input("Google QPS target (≤10)", min_value=1.0, max_value=10.0, value=float(cfg.GOOGLE_QPS_TARGET), step=0.5)
 
-exclude_domains_text = st.text_area(
-    "Exclude domains (one per line or comma-separated)",
-    value="amazon.com\nebay.com\nwalmart.com",
-    height=120,
-)
-
 stage3_btn = st.button("Run Stage 3", type="primary")
 
 if stage3_btn:
@@ -226,7 +221,6 @@ if stage3_btn:
                 client.usage.qps_target = float(qps)
 
             df2 = st.session_state["stage2_df"].copy()
-            exclude = normalize_exclusions(exclude_domains_text)
 
             # Prepare link columns
             for j in range(int(max_links)):
@@ -235,6 +229,8 @@ if stage3_btn:
                     df2[col] = None
 
             total = len(df2)
+            excluded = get_excluded_domains()
+            log.info("Applying server-side domain exclusions: %s", excluded)
             for i, row in df2.iterrows():
                 brand = clean_text(row.get("brand"))
                 title = clean_text(row.get("product_title"))
@@ -247,13 +243,17 @@ if stage3_btn:
 
                 query = build_query(brand, title)
                 try:
-                    payload = client.search(query, exclude_domains=exclude, num=10)
+                    payload = client.search(query, exclude_domains=[], num=10)  # we filter after
                     items = payload.get("items", []) or []
                 except Exception as e:
                     log.warning("Google search failed for row %d: %s", i, e)
                     items = []
 
                 filtered = semantic_filter(items, target_text=target, threshold=float(threshold))
+                # NEW: domain-level filter (no UI, code-controlled)
+                excluded = get_excluded_domains()
+                log.info("Applying server-side domain exclusions: %s", excluded)
+                filtered = filter_items_by_domain(filtered, excluded)   
                 for j in range(int(max_links)):
                     df2.at[i, f"link_{j+1}"] = (filtered[j]["url"] if j < len(filtered) else None)
 
