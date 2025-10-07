@@ -20,7 +20,21 @@ def _parse_domain(url: str) -> str:
         return ""
 
 def _endswith_any(host: str, domains: List[str]) -> bool:
-    return any(host.endswith(d.strip().lower()) for d in domains if d.strip())
+    """
+    Checks whether host matches or contains the base domain.
+    If domain is 'amazon.com', then any host containing 'amazon' is excluded.
+    """
+    host = host.lower().strip()
+    for d in domains:
+        d_clean = d.strip().lower()
+        if not d_clean:
+            continue
+        # Extract the base part before the first dot in d_clean
+        base = d_clean.split(".", 1)[0]  # e.g. "amazon"
+        # If host contains base as a substring, exclude
+        if base and (base in host):
+            return True
+    return False
 
 def _load_default_excluded() -> List[str]:
     """Reads default excluded domains from a text file."""

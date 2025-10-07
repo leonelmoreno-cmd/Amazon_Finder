@@ -113,3 +113,7 @@ jumia.com.ng
 target.com
 Meijer.com
 WinnDixie.com
+homedepot.com
+reddit.com
+yahoo.com
+x.com
